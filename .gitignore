@@ -1,0 +1,20 @@
+# Eclipse top-level resource files are excluded ...
+.metadata/
+
+# Some Eclipse project resource files should never be checked in ...
+.recommenders/
+.settings/
+
+# These are names of directories typically used for generated content, so are ignored ...
+bin/
+build/
+deploy/
+target/
+*.class
+
+# The wpilib directory should never be committed
+libs/wpilib
+downloads/
+
+.DS_Store/
+
