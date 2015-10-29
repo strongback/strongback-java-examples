@@ -24,4 +24,3 @@ To set up continuous integration on Travis, we first added a `.travis.yml` file 
 You can reuse this same Ant build script in your own team's repository that contain robot projects that use WPILib and Strongback. To do this, simply copy the `build.xml` and `build.properties` files into the top-level directory of your repository, and then you too can use a single command line to clean, compile, and test all of your robot projects.
 
 You can even set up continuous integration for your team's repository using [Travis-CI.org](http://travis-ci.org). Simply copy our `.travis.yml` into your repository and commit it, and then go to http://travis-ci.org to sign up for an account and set up your CI job.
-
