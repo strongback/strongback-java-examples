@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<project name="multi-robot-build" default="compile">
+
+    <property file="build.properties"/>
+    <property name="wpilib.dir" value="${user.home}/wpilib"/>
+    <property name="wpilib.ant.dir" value="${wpilib.dir}/java/current/ant"/>
+    <property name="strongback.dir" value="${user.home}/strongback"/>
+    <property name="strongback.parent.dir" location="${strongback.dir}/.."/>
+    <property name="strongback.url" value="https://github.com/strongback/strongback-java/releases/download"/>
+    <property name="download.dir" value="build-downloads"/>
+
+    <target name="help">
+        <echo>This build script can clean, compile and run the tests for multiple robot projects</echo>
+        <echo>contained in this directory. This script supports the following:</echo>
+        <echo></echo>
+        <echo>   ant deps</echo>
+        <echo></echo>
+        <echo>will check for local installations of WPILib and Strongback, and will install them</echo>
+        <echo>on the local machine.</echo>
+        <echo></echo>
+        <echo>Once these libraries are available, this script can be run with one or more of the</echo>
+        <echo>following tasks:</echo>
+        <echo></echo>
+        <echo>   clean         Cleans all nested robot projects</echo>
+        <echo>   compile       Compiles the source code in all nested robot projects</echo>
+        <echo>   test          Compiles and runs the tests in all nested robot projects</echo>
+        <echo></echo>
+    </target>
+
+    <target name="clean" description="Performs clean in each nested robot project">
+        <subant failonerror="false">
+            <fileset dir="." includes="**/build.xml" excludes="build.xml"/>
+            <target name="clean"/>
+        </subant>
+    </target>
+
+    <target name="compile" description="Compiles the source code in each nested robot projects">
+        <subant failonerror="false">
+            <fileset dir="." includes="**/build.xml" excludes="build.xml"/>
+            <target name="compile"/>
+        </subant>
+    </target>
+
+    <target name="test" description="Compiles and runs the unit tests in each nested robot projects">
+        <subant failonerror="false">
+            <fileset dir="." includes="**/build.xml" excludes="build.xml"/>
+            <target name="test"/>
+        </subant>
+    </target>
+
+    <!-- Install Dependencies -->
+    <target name="deps" 
+            depends="download-strongback,download-wpilib,clean-downloads" 
+            description="Checks for WPILib and Strongback, and if missing downloads and installs them">
+    </target>
+
+    <!-- Remove and clean dependencies -->
+    <target name="clean-downloads" description="Deletes the temporary downloads folder">
+        <delete dir="${download.dir}" />
+    </target>
+
+    <!-- ===================================================== -->
+    <!--   Check and install WPI if needed                     -->
+    <!-- ===================================================== -->
+
+    <target name="check-for-wpilib">
+        <condition property="wpilib-missing">
+            <not>
+                <available file="${wpilib.dir}" type="dir"/>
+            </not>
+        </condition>
+    </target>
+
+    <target name="download-wpilib" depends="check-for-wpilib" if="wpilib-missing" >
+        <echo>Downloading the WPILib library and installing into '${wpilib.dir}'.</echo>
+        <mkdir dir="${download.dir}"/>
+        <!-- Download the 'site.xml' file that contains the URL to the feature we want, and get that URL -->
+        <get src="${wpilib.updatesite.url}/site.xml" dest="${download.dir}/site.xml"/>
+        <xmlproperty file="${download.dir}/site.xml" collapseAttributes="true" semanticAttributes="true" keepRoot="true"/>
+        <select-java-version input="${site.feature.url}" output="wpilib.version" />
+        <select-java-feature-url input="${site.feature.url}" output="javaFeatureUrl" />
+        <echo>Installing WPILib version ${wpilib.version}</echo>
+        <!-- The feature URL can be converted to the plugin URL -->
+        <loadresource property="javaPluginUrl">
+          <propertyresource name="javaFeatureUrl"/>
+          <filterchain>
+            <tokenfilter>
+              <filetokenizer/>
+              <replacestring from="features" to="plugins"/>
+            </tokenfilter>
+            <tokenfilter>
+              <filetokenizer/>
+              <replacestring from="java.feature" to="java"/>
+            </tokenfilter>
+          </filterchain>
+        </loadresource>
+        <!-- Get the plugin JAR file, and extract it's 'java.zip' file -->
+        <get src="${wpilib.updatesite.url}/${javaPluginUrl}" dest="${download.dir}/wpi-java-plugin.jar"/>
+        <unzip src="${download.dir}/wpi-java-plugin.jar" dest="${download.dir}">
+            <patternset>
+                <include name="**/java.zip"/>
+            </patternset>
+        </unzip>
+        <!-- Extract the 'java.zip' file into a new `wpilib` directory -->
+        <mkdir dir="${wpilib.dir}/java/current"/>
+        <unzip src="${download.dir}/resources/java.zip" dest="${wpilib.dir}/java/current">
+            <patternset>
+                <include name="**/*"/>
+            </patternset>
+        </unzip>
+        <!-- Write out a property file in the directory -->
+        <propertyfile file="${wpilib.dir}/wpilib.properties" comment="Downloaded and installed by Strongback build system">
+            <entry  key="version" value="current"/>
+            <entry  key="wpilib.version" value="${wpilib.version}"/>
+        </propertyfile>
+    </target>
+
+    <!-- ===================================================== -->
+    <!--   Check and install Strongback if needed              -->
+    <!-- ===================================================== -->
+
+    <target name="check-for-strongback">
+        <condition property="strongback-missing">
+            <not>
+                <available file="${strongback.dir}" type="dir"/>
+            </not>
+        </condition>
+    </target>
+
+    <target name="download-strongback" depends="check-for-strongback" if="strongback-missing" >
+        <echo>Downloading the Strongback library version ${strongback.version} and installing into '${strongback.dir}'.</echo>
+        <mkdir dir="${download.dir}"/>
+        <!-- Download the Strongback distribution file -->
+        <get src="${strongback.url}/v${strongback.version}/strongback-${strongback.version}.zip" 
+             dest="${download.dir}/strongback-${strongback.version}.zip"/>
+        <!-- Extract the 'java.zip' file into a new `wpilib` directory -->
+        <mkdir dir="${strongback.dir}"/>
+        <unzip src="${download.dir}/strongback-${strongback.version}.zip" 
+               dest="${strongback.dir}/.."
+               overwrite="false">
+            <patternset>
+                <include name="**/*"/>
+            </patternset>
+        </unzip>
+    </target>
+
+    <!-- ===================================================== -->
+    <!--   Regex macros (to avoid using Ant-Contrib)           -->
+    <!-- ===================================================== -->
+
+    <macrodef name="select-java-version">
+        <attribute name="input" default="default" />
+        <attribute name="output" default="default" />
+        <sequential>
+            <echo message="@{input}" file="${download.dir}/tmp.file" />
+            <loadfile property="@{output}" srcFile="${download.dir}/tmp.file">
+                <filterchain>
+                    <tokenfilter>
+                        <replaceregex pattern=".*java\.feature_([\d.]*)\.jar.*" replace="\1" flags="g" />
+                    </tokenfilter>
+                </filterchain>
+            </loadfile>
+            <delete file="${download.dir}/tmp.file" />
+        </sequential>
+    </macrodef>
+
+    <macrodef name="select-java-feature-url">
+        <attribute name="input" default="default" />
+        <attribute name="output" default="default" />
+        <sequential>
+            <echo message="@{input}" file="${download.dir}/tmp.file" />
+            <loadfile property="@{output}" srcFile="${download.dir}/tmp.file">
+                <filterchain>
+                    <tokenfilter>
+                        <replaceregex pattern=".*(features/.*java\.feature_[\d.]*\.jar).*" replace="\1" flags="g" />
+                    </tokenfilter>
+                </filterchain>
+            </loadfile>
+            <delete file="${download.dir}/tmp.file" />
+        </sequential>
+    </macrodef>
+
+</project>
